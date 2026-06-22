@@ -290,6 +290,8 @@ def _bigquery_fetch_all(limit: int | None = None) -> pd.DataFrame:
     if limit is not None:
         query += f"\n        LIMIT {int(limit)}"
 
+    print(query)
+
     job = client.query(query)
     df = job.result(timeout=300).to_dataframe(create_bqstorage_client=False)
     return _ensure_output_columns(df)
