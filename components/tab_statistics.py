@@ -137,6 +137,7 @@ def _render_quantitative_breakdown(cid: int, clust_df: pd.DataFrame) -> None:
             )
             if feat == "valor_total":
                 money_rows = [r for r in desc.index if r != "N"]
+                desc[unit] = desc[unit].astype(object)
                 desc.loc[money_rows, unit] = desc.loc[money_rows, unit].apply(
                     lambda x: f"$ {x:,.0f}"
                 )
