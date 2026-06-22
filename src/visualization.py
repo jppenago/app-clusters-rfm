@@ -94,11 +94,8 @@ def plot_3d_scatter(df: pd.DataFrame, max_points: int = 5000) -> go.Figure:
         cols, labels, use_scaled = _ORIG_FEATURES, _ORIG_LABELS, False
     x_col, y_col, z_col = cols
     axis_labels = dict(zip(cols, labels))
-    title = (
-        "Distribución RFM por Cluster (valores escalados)"
-        if use_scaled
-        else "Distribución RFM por Cluster"
-    )
+    title = "Valores escalados"
+    
 
     # En el hover mantenemos los valores originales para interpretabilidad
     hover_data: dict[str, bool] = {}

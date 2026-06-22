@@ -32,6 +32,7 @@ from components.header import render_header
 from components.metrics_bar import render_metrics_bar
 from components.sidebar import render_sidebar
 from components.styles import render_styles
+from components.tab_chat import render_chat_tab
 from components.tab_data import render_data_tab
 from components.tab_statistics import render_stats_tab
 from components.tab_visualizations import render_viz_tab
@@ -166,12 +167,12 @@ if st.session_state["result"] is not None:
     render_metrics_bar(result, n_used)
     st.divider()
 
-    tab_viz, tab_stats, tab_data = st.tabs(
+    tab_viz, tab_stats, tab_data, tab_chat = st.tabs(
         [
             "📈 Visualizaciones",
             "📊 Estadísticas por Cluster",
             "📋 Tabla de Datos",
-            # "💬 Asistente Inteligente (Vertex AI)",
+            "💬 Asistente Inteligente",
         ]
     )
 
@@ -183,6 +184,9 @@ if st.session_state["result"] is not None:
 
     with tab_data:
         render_data_tab(clust_df)
+
+    with tab_chat:
+        render_chat_tab(summary)
 
 
 else:

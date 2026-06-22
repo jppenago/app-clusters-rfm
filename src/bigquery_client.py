@@ -69,7 +69,7 @@ def _inject_windows_certs() -> None:
 
 _BQ_PROJECT = "media-team-marketing"
 _BQ_DATASET = "clusters_rfm"
-_BQ_TABLE = "jzp_global_compras_rfm"
+_BQ_TABLE = "jzp_global_compras_rfm_v2_partitioned"
 
 # ── Esquema de salida ─────────────────────────────────────────────────────────
 # Variables que alimentan el clustering (NO tocar: las consume src/clustering.py)
@@ -81,7 +81,7 @@ CATEGORICAL_COLUMNS: list[str] = [
     "segmento",
     "subsegmento",
     "genero",
-    "rango_edad",
+    "producto",
 ]
 
 # Columnas de enriquecimiento que se retornan para perfilar y mostrar en la
@@ -108,18 +108,19 @@ _BQ_COLUMN_ALIASES: dict[str, str] = {
     "desc_segmento": "segmento",
     "desc_subsegmento": "subsegmento",
     "desc_genero": "genero",
-    "rango_edad": "rango_edad",
-    "nivel_renta": "nivel_renta",
-    "nivel_lealtad": "nivel_lealtad",
-    "cat_principalidad": "principalidad",
-    "nivel_dig_trx": "nivel_digital",
-    "perfil_trx": "perfil_transaccional",
-    "desc_ocupacion": "ocupacion",
-    "edad": "edad",
-    "valor_ingreso_estimado": "valor_ingreso_estimado",
-    "recencia": "recencia",
+    # "rango_edad": "rango_edad",
+    # "nivel_renta": "nivel_renta",
+    # "nivel_lealtad": "nivel_lealtad",
+    # "cat_principalidad": "principalidad",
+    # "nivel_dig_trx": "nivel_digital",
+    # "perfil_trx": "perfil_transaccional",
+    # "desc_ocupacion": "ocupacion",
+    # "edad": "edad",
+    # "valor_ingreso_estimado": "valor_ingreso_estimado",
+    "recency_dias": "recencia",
     "frecuencia": "frecuencia",
-    "monto_total": "valor_total",
+    "valor_total": "valor_total",
+    # "producto": "producto",
 }
 
 
@@ -263,6 +264,7 @@ def _bigquery_fetch(llave_sistemas: list[str]) -> pd.DataFrame:
         FROM `{_BQ_PROJECT}.{_BQ_DATASET}.{_BQ_TABLE}`
         WHERE llave_sistema IN UNNEST(@llave_sistemas)
     """
+    print(query)
 
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
