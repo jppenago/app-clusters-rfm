@@ -87,20 +87,18 @@ CATEGORICAL_COLUMNS: list[str] = [
 # Columnas de enriquecimiento que se retornan para perfilar y mostrar en la
 # tabla de datos, pero NO se exponen como filtros categóricos.
 _EXTRA_ENRICHMENT_COLUMNS: list[str] = [
-    "nivel_renta",
-    "nivel_lealtad",
-    "principalidad",
-    "nivel_digital",
-    "perfil_transaccional",
-    "ocupacion",
-    "edad",
-    "valor_ingreso_estimado",
+    # "nivel_renta",
+    # "nivel_lealtad",
+    # "principalidad",
+    # "nivel_digital",
+    # "perfil_transaccional",
+    # "ocupacion",
+    # "edad",
+    # "valor_ingreso_estimado",
 ]
 
 # Orden final de columnas que retorna ``fetch_audience_data``.
-OUTPUT_COLUMNS: list[str] = (
-    ["llave_sistema"] + CATEGORICAL_COLUMNS + _EXTRA_ENRICHMENT_COLUMNS + RFM_COLUMNS
-)
+OUTPUT_COLUMNS: list[str] = ["llave_sistema"] + CATEGORICAL_COLUMNS + RFM_COLUMNS
 
 # Mapeo columna_origen (BigQuery) -> alias de salida usado por la app.
 _BQ_COLUMN_ALIASES: dict[str, str] = {
@@ -120,7 +118,7 @@ _BQ_COLUMN_ALIASES: dict[str, str] = {
     "recency_dias": "recencia",
     "frecuencia": "frecuencia",
     "valor_total": "valor_total",
-    # "producto": "producto",
+    "producto": "producto",
 }
 
 
