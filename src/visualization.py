@@ -95,7 +95,6 @@ def plot_3d_scatter(df: pd.DataFrame, max_points: int = 5000) -> go.Figure:
     x_col, y_col, z_col = cols
     axis_labels = dict(zip(cols, labels))
     title = "Valores escalados"
-    
 
     # En el hover mantenemos los valores originales para interpretabilidad
     hover_data: dict[str, bool] = {}

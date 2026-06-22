@@ -114,7 +114,5 @@ def render_chat_tab(summary: pd.DataFrame) -> None:
                     )
                 st.markdown(response)
 
-        st.session_state["messages"].append(
-            {"role": "assistant", "content": response}
-        )
+        st.session_state["messages"].append({"role": "assistant", "content": response})
         st.rerun()

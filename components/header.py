@@ -19,4 +19,3 @@ def render_header() -> None:
         """,
         unsafe_allow_html=True,
     )
-
