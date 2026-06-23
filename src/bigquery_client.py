@@ -238,7 +238,7 @@ def _bigquery_fetch(llave_sistemas: list[str]) -> pd.DataFrame:
         SELECT
             {_build_select_clause()}
         FROM `{_BQ_PROJECT}.{_BQ_DATASET}.{_BQ_TABLE}`
-        WHERE llave_sistema IN UNNEST(@llave_sistemas)
+        WHERE llave_sistema IN UNNEST(@llave_sistemas) AND valor_total >= 10000
     """
     print(query)
 
@@ -263,7 +263,7 @@ def _bigquery_fetch_all(limit: int | None = None) -> pd.DataFrame:
         SELECT
             {_build_select_clause()}
         FROM `{_BQ_PROJECT}.{_BQ_DATASET}.{_BQ_TABLE}`
-        WHERE llave_sistema IS NOT NULL
+        WHERE llave_sistema IS NOT NULL AND valor_total >= 10000
     """
     if limit is not None:
         query += f"\n        LIMIT {int(limit)}"
