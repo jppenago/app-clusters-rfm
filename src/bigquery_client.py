@@ -84,19 +84,6 @@ CATEGORICAL_COLUMNS: list[str] = [
     "producto",
 ]
 
-# Columnas de enriquecimiento que se retornan para perfilar y mostrar en la
-# tabla de datos, pero NO se exponen como filtros categóricos.
-_EXTRA_ENRICHMENT_COLUMNS: list[str] = [
-    # "nivel_renta",
-    # "nivel_lealtad",
-    # "principalidad",
-    # "nivel_digital",
-    # "perfil_transaccional",
-    # "ocupacion",
-    # "edad",
-    # "valor_ingreso_estimado",
-]
-
 # Orden final de columnas que retorna ``fetch_audience_data``.
 OUTPUT_COLUMNS: list[str] = ["llave_sistema"] + CATEGORICAL_COLUMNS + RFM_COLUMNS
 
@@ -106,15 +93,6 @@ _BQ_COLUMN_ALIASES: dict[str, str] = {
     "desc_segmento": "segmento",
     "desc_subsegmento": "subsegmento",
     "desc_genero": "genero",
-    # "rango_edad": "rango_edad",
-    # "nivel_renta": "nivel_renta",
-    # "nivel_lealtad": "nivel_lealtad",
-    # "cat_principalidad": "principalidad",
-    # "nivel_dig_trx": "nivel_digital",
-    # "perfil_trx": "perfil_transaccional",
-    # "desc_ocupacion": "ocupacion",
-    # "edad": "edad",
-    # "valor_ingreso_estimado": "valor_ingreso_estimado",
     "recency_dias": "recencia",
     "frecuencia": "frecuencia",
     "valor_total": "valor_total",
