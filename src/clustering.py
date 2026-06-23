@@ -192,143 +192,18 @@ def apply_kmeans(
 
 
 # ── Estadísticas descriptivas por cluster ────────────────────────────────────
-def extract_cluster_rules(
-    df: pd.DataFrame, target_col: str = "cluster"
-) -> dict[int, str]:
-    """
-    Entrena un DecisionTreeClassifier para aproximar las fronteras de decisión de los clusters
-    y extrae reglas lógicas legibles por humanos en las unidades originales.
-    Retorna un diccionario {id_cluster: "regla_legible"}.
-    """
-    from sklearn.tree import DecisionTreeClassifier
-
-    X = df[FEATURES].copy()
-    y = df[target_col].copy()
-
-    # Validaciones básicas
-    if len(df) < 5 or len(y.unique()) < 2:
-        return {
-            cl: "Todos los clientes asignados en este segmento" for cl in y.unique()
-        }
-
-    try:
-        # Profundidad max_depth=4: equilibra reglas más puras (mayor exactitud en
-        # clusters intermedios que se solapan) sin volverlas ilegibles.
-        clf = DecisionTreeClassifier(
-            max_depth=4, min_samples_leaf=max(1, len(df) // 25), random_state=42
-        )
-        clf.fit(X, y)
-
-        tree = clf.tree_
-        feature = tree.feature
-        threshold = tree.threshold
-        children_left = tree.children_left
-        children_right = tree.children_right
-        value = tree.value
-
-        feature_names_map = {
-            "recencia": "Recencia",
-            "frecuencia": "Frecuencia",
-            "valor_total": "Monto Total",
-        }
-
-        paths = []
-
-        def recurse(node_id, current_path):
-            if children_left[node_id] == children_right[node_id]:  # Hoja
-                class_counts = value[node_id].squeeze()
-                if class_counts.ndim == 0:
-                    class_counts = np.array([class_counts])
-                pred_class_idx = np.argmax(class_counts)
-                pred_class = clf.classes_[pred_class_idx]
-                total = np.sum(class_counts)
-                pureza = (
-                    (class_counts[pred_class_idx] / total) * 100 if total > 0 else 100.0
-                )
-
-                paths.append(
-                    {
-                        "cluster": int(pred_class),
-                        "rules": list(current_path),
-                        "pureza": pureza,
-                        "samples": int(total),
-                    }
-                )
-                return
-
-            # Nodo de decisión
-            feat_idx = feature[node_id]
-            feat_name = FEATURES[feat_idx]
-            friendly_name = feature_names_map[feat_name]
-            thresh = threshold[node_id]
-
-            if feat_name == "valor_total":
-                formatted_l = f"{friendly_name} <= ${thresh:,.0f} COP"
-                formatted_r = f"{friendly_name} > ${thresh:,.0f} COP"
-            elif feat_name == "frecuencia":
-                formatted_l = f"{friendly_name} <= {int(thresh)} tx"
-                formatted_r = f"{friendly_name} > {int(thresh)} tx"
-            else:
-                formatted_l = f"{friendly_name} <= {int(thresh)} días"
-                formatted_r = f"{friendly_name} > {int(thresh)} días"
-
-            recurse(children_left[node_id], current_path + [formatted_l])
-            recurse(children_right[node_id], current_path + [formatted_r])
-
-        recurse(0, [])
-
-        # Agrupar caminos por cluster
-        rules_by_cluster = {}
-        for p in paths:
-            cl = p["cluster"]
-            if cl not in rules_by_cluster:
-                rules_by_cluster[cl] = []
-            rules_by_cluster[cl].append(p)
-
-        # Generar una regla consolidada para cada cluster id
-        final_rules = {}
-        for cl in sorted(y.unique()):
-            cl_paths = rules_by_cluster.get(cl, [])
-            if not cl_paths:
-                final_rules[cl] = "Sujeto a distribución general"
-                continue
-
-            # Ordenar caminos del clúster por número de muestras decreciente
-            cl_paths = sorted(cl_paths, key=lambda x: -x["samples"])
-            best_path = cl_paths[0]
-
-            rules_list = best_path["rules"]
-            if not rules_list:
-                final_rules[cl] = "Comportamiento representativo general"
-            else:
-                rule_str = " Y ".join(rules_list)
-                final_rules[cl] = (
-                    f"{rule_str} (con {best_path['pureza']:.1f}% de exactitud en regla)"
-                )
-
-        return final_rules
-    except Exception as e:
-        return {cl: f"Lógica matemática adaptativa: {e}" for cl in y.unique()}
-
-
 def get_cluster_summary(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calcula estadísticas descriptivas por clúster (media, mediana, desv. estándar,
-    mínimo y máximo de cada variable RFM, además del tamaño y porcentaje) y extrae
-    las fronteras de decisión inductivas mediante un Árbol de Decisión.
+    mínimo y máximo de cada variable RFM, además del tamaño y porcentaje).
 
     No asigna nombres ni arquetipos subjetivos: los clusters se identifican solo
     por su número.
     """
-    # 1. Agregación descriptiva por clúster
     agg = df.groupby("cluster")[FEATURES].agg(["mean", "median", "std", "min", "max"])
     agg.columns = ["_".join(col) for col in agg.columns]
     agg["n_clientes"] = df.groupby("cluster").size().values
     agg["porcentaje"] = (agg["n_clientes"] / len(df)) * 100
     agg = agg.reset_index()
-
-    # 2. Extraer fronteras de decisión lógicas mediante Árbol de Decisión
-    rules_map = extract_cluster_rules(df)
-    agg["reglas_automaticas"] = agg["cluster"].map(rules_map)
 
     return agg

@@ -83,9 +83,6 @@ def _render_cluster_card(row: pd.Series, clust_df: pd.DataFrame) -> None:
             unsafe_allow_html=True,
         )
 
-        # Frontera de decisión (Decision Tree)
-        p_rules = row.get("reglas_automaticas", "Sujeto a distribución general")
-
         # Métricas medianas
         sc1, sc2, sc3 = st.columns(3)
         sc1.metric(
