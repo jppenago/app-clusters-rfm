@@ -6,55 +6,86 @@ import numpy as np
 import pandas as pd
 
 
-def _inject_windows_certs() -> None:
-    """Combina el almacén de certificados de Windows con el bundle de certifi.
+def _inject_system_certs() -> None:
+    """Combina el almacén de certificados del SO con el bundle de certifi.
 
     En redes corporativas con inspección SSL (proxy con CA autofirmada), la CA
-    corporativa ya está registrada en el almacén del SO pero no en el bundle de
+    corporativa está registrada en el almacén del SO pero no en el bundle de
     certifi que usan ``requests`` y ``google-auth``.  Esta función:
 
-    1. Lee las CAs de los almacenes "CA" y "ROOT" del SO Windows.
-    2. Las combina con el bundle de certifi en un fichero temporal.
-    3. Establece ``REQUESTS_CA_BUNDLE`` y ``SSL_CERT_FILE`` apuntando a ese
-       fichero, de modo que todas las peticiones HTTP del proceso confían en
-       la CA corporativa sin deshabilitar la verificación SSL.
+    - **Windows**: lee los almacenes "CA" y "ROOT" via ``ssl.enum_certificates``.
+    - **macOS**: lee los keychains del sistema via el comando ``security``.
+    - **Linux/otros**: no-op (los certificados del sistema suelen estar en
+      rutas estándar que el SO ya expone; si se necesita, ajustar manualmente).
 
-    Es un no-op en sistemas no-Windows o si ya se ejecutó en este proceso.
+    En todos los casos combina los certificados encontrados con el bundle de
+    certifi en un fichero temporal y establece ``REQUESTS_CA_BUNDLE`` y
+    ``SSL_CERT_FILE`` apuntando a él, de modo que todas las peticiones HTTP del
+    proceso confían en la CA corporativa sin deshabilitar la verificación SSL.
+
+    Es un no-op si ya se ejecutó en este proceso (``_RFM_CERTS_INJECTED``).
     """
     import os
     import sys
 
-    if sys.platform != "win32":
-        return
     if os.environ.get("_RFM_CERTS_INJECTED"):
         return
 
-    import base64
-    import ssl
     import tempfile
 
     import certifi
 
-    pem_lines: list[str] = []
-    for store_name in ("CA", "ROOT"):
-        try:
-            for cert_der, encoding, _ in ssl.enum_certificates(store_name):
-                if encoding == "x509_asn" and isinstance(cert_der, bytes):
-                    b64 = base64.b64encode(cert_der).decode("ascii")
-                    lines = [b64[i : i + 64] for i in range(0, len(b64), 64)]
-                    pem_lines.append("-----BEGIN CERTIFICATE-----")
-                    pem_lines.extend(lines)
-                    pem_lines.append("-----END CERTIFICATE-----")
-        except Exception:
-            pass
+    extra_pem: str = ""
 
-    if not pem_lines:
+    if sys.platform == "win32":
+        import base64
+        import ssl
+
+        pem_lines: list[str] = []
+        for store_name in ("CA", "ROOT"):
+            try:
+                for cert_der, encoding, _ in ssl.enum_certificates(store_name):
+                    if encoding == "x509_asn" and isinstance(cert_der, bytes):
+                        b64 = base64.b64encode(cert_der).decode("ascii")
+                        lines = [b64[i : i + 64] for i in range(0, len(b64), 64)]
+                        pem_lines.append("-----BEGIN CERTIFICATE-----")
+                        pem_lines.extend(lines)
+                        pem_lines.append("-----END CERTIFICATE-----")
+            except Exception:
+                pass
+        extra_pem = "\n".join(pem_lines)
+
+    elif sys.platform == "darwin":
+        import subprocess
+
+        # SystemRootCertificates = root CAs embebidas en macOS.
+        # System.keychain = certificados adicionales instalados por el SO / MDM corporativo.
+        keychains = [
+            "/System/Library/Keychains/SystemRootCertificates.keychain",
+            "/Library/Keychains/System.keychain",
+        ]
+        parts: list[str] = []
+        for keychain in keychains:
+            try:
+                proc = subprocess.run(
+                    ["security", "find-certificate", "-a", "-p", keychain],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if proc.returncode == 0 and proc.stdout.strip():
+                    parts.append(proc.stdout.strip())
+            except Exception:
+                pass
+        extra_pem = "\n".join(parts)
+
+    if not extra_pem.strip():
         return
 
     with open(certifi.where(), encoding="utf-8") as fh:
         certifi_bundle = fh.read()
 
-    combined = certifi_bundle + "\n" + "\n".join(pem_lines) + "\n"
+    combined = certifi_bundle + "\n" + extra_pem + "\n"
 
     tmp = tempfile.NamedTemporaryFile(
         mode="w", suffix=".pem", delete=False, encoding="utf-8"
@@ -187,8 +218,8 @@ def _get_bq_client():
     from google.cloud import bigquery  # noqa: PLC0415
     from google.oauth2 import service_account  # noqa: PLC0415
 
-    # Inyectar CAs del SO de Windows para entornos con proxy de inspección SSL.
-    _inject_windows_certs()
+    # Inyectar CAs del SO (Windows y macOS) para entornos con proxy de inspección SSL.
+    _inject_system_certs()
 
     sa_key_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "serviceaccount.json"
