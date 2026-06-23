@@ -168,9 +168,9 @@ if st.session_state["result"] is not None:
 
     tab_viz, tab_stats, tab_data = st.tabs(
         [
-            "📈 Visualizaciones",
-            "📊 Estadísticas por Cluster",
-            "📋 Tabla de Datos",
+            "Visualizaciones",
+            "Estadísticas por Cluster",
+            "Tabla de Datos",
         ]
     )
 

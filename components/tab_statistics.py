@@ -37,8 +37,9 @@ def render_stats_tab(summary: pd.DataFrame, clust_df: pd.DataFrame) -> None:
         DataFrame completo con columnas RFM + ``cluster``.
     """
     st.markdown(
-        "<p style='font-size:1.1rem;font-weight:600;color:#0F172A;margin-bottom:1rem;'>"
-        "📊 Estadísticas Descriptivas por Cluster</p>",
+        "<p style='font-size:1.1rem;font-weight:600;color:#0F172A;margin-bottom:1rem;display:flex;align-items:center;'>"
+        "<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='#6366F1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin-right:8px;flex-shrink:0;'><line x1='18' y1='20' x2='18' y2='10'/><line x1='12' y1='20' x2='12' y2='4'/><line x1='6' y1='20' x2='6' y2='14'/></svg>"
+        "Estadísticas Descriptivas por Cluster</p>",
         unsafe_allow_html=True,
     )
 

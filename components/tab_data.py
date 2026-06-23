@@ -44,7 +44,7 @@ def render_data_tab(clust_df: pd.DataFrame) -> None:
 
     csv_out = clust_df.to_csv(index=False)
     st.download_button(
-        "⬇️ Descargar resultados completos (CSV)",
+        "↓ Descargar resultados completos (CSV)",
         data=csv_out,
         file_name="audiencia_clusterizada.csv",
         mime="text/csv",

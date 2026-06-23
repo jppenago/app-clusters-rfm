@@ -66,6 +66,33 @@ def render_styles() -> None:
                 font-size: 0.84rem !important; font-weight: 500 !important;
             }
 
+            /* ── Tab SVG icons ── */
+            [data-baseweb="tab-list"] button[data-baseweb="tab"]::before {
+                content: '';
+                display: inline-block;
+                width: 14px; height: 14px;
+                background-repeat: no-repeat;
+                background-position: center;
+                background-size: contain;
+                margin-right: 5px;
+                vertical-align: -2px;
+            }
+            [data-baseweb="tab-list"] button[data-baseweb="tab"]:nth-of-type(1)::before {
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234338CA' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='23 6 13.5 15.5 8.5 10.5 1 18'/%3E%3Cpolyline points='17 6 23 6 23 12'/%3E%3C/svg%3E");
+            }
+            [data-baseweb="tab-list"] button[data-baseweb="tab"]:nth-of-type(2)::before {
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234338CA' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='20' x2='18' y2='10'/%3E%3Cline x1='12' y1='20' x2='12' y2='4'/%3E%3Cline x1='6' y1='20' x2='6' y2='14'/%3E%3C/svg%3E");
+            }
+            [data-baseweb="tab-list"] button[data-baseweb="tab"]:nth-of-type(3)::before {
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234338CA' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Cline x1='3' y1='9' x2='21' y2='9'/%3E%3Cline x1='3' y1='15' x2='21' y2='15'/%3E%3Cline x1='9' y1='9' x2='9' y2='21'/%3E%3Cline x1='15' y1='9' x2='15' y2='21'/%3E%3C/svg%3E");
+            }
+
+            /* ── Section headings with SVG icons ── */
+            .section-heading {
+                font-size: 1rem; font-weight: 600; color: #0F172A;
+                margin: 0.5rem 0 0.5rem 0; display: flex; align-items: center;
+            }
+
             /* ── Cluster stat containers ── */
             [data-testid="stVerticalBlockBorderWrapper"] {
                 border-radius: 14px !important; border: 1px solid #E2E8F0 !important;
