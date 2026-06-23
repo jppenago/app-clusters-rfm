@@ -160,13 +160,14 @@ def plot_feature_boxplots(df: pd.DataFrame) -> go.Figure:
     """
     Box plots de recencia, frecuencia y valor_total agrupados por cluster.
     Siempre usa las variables originales (días / transacciones / COP).
+    Todas las variables usan escala logarítmica para evitar que un cluster
+    con rango extremo comprima visualmente el resto de las cajas.
     """
-    features, labels, log_axes, use_scaled = (
-        _ORIG_FEATURES,
-        _ORIG_LABELS,
-        [False, True, True],
-        False,
-    )
+    features = _ORIG_FEATURES
+    labels = _ORIG_LABELS
+    # Log scale for all three: keeps boxes proportional even when one cluster
+    # has a much wider spread than the others.
+    log_axes = [True, True, True]
 
     clusters = sorted(df["cluster"].unique())
     color_map = _cluster_color_map(clusters)
@@ -175,14 +176,14 @@ def plot_feature_boxplots(df: pd.DataFrame) -> go.Figure:
         rows=3,
         cols=1,
         subplot_titles=labels,
-        vertical_spacing=0.10,
+        vertical_spacing=0.12,
     )
 
     for row_i, (feature, use_log) in enumerate(zip(features, log_axes), start=1):
         for cl_i, cluster in enumerate(clusters):
             data = df.loc[df["cluster"] == cluster, feature]
-            # Para log scale desplazamos valores ≤ 0
-            y_vals = data.clip(lower=1) if use_log else data
+            # Clip to 1 so log scale never receives ≤ 0 values
+            y_vals = data.clip(lower=1)
             fig.add_trace(
                 go.Box(
                     y=y_vals,
@@ -204,15 +205,13 @@ def plot_feature_boxplots(df: pd.DataFrame) -> go.Figure:
                 row=row_i,
                 col=1,
             )
-        if use_log:
-            fig.update_yaxes(type="log", row=row_i, col=1)
+        fig.update_yaxes(type="log", row=row_i, col=1)
         fig.update_xaxes(
             tickvals=[f"Cluster {c}" for c in clusters],
             row=row_i,
             col=1,
         )
 
-    _box_title = "Distribución de variables RFM"
     fig.update_layout(
         **_LAYOUT_BASE,
         title=dict(
@@ -220,12 +219,12 @@ def plot_feature_boxplots(df: pd.DataFrame) -> go.Figure:
             font=dict(size=14, color="#1E293B"),
             x=0,
         ),
-        height=850,
+        height=1050,
         boxmode="group",
         boxgap=0.25,
         boxgroupgap=0.15,
         legend_title_text="Cluster",
-        margin=dict(t=65, l=60, r=20, b=20),
+        margin=dict(t=65, l=70, r=20, b=20),
     )
     return fig
 
