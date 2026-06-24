@@ -1,11 +1,8 @@
 """
-Componente de barra lateral (sidebar).
+Componente de la barra lateral (Sidebar).
 
-Responsabilidad única: renderizar todos los controles del panel lateral y
-retornar sus valores encapsulados en ``SidebarConfig``.
-
-El componente no ejecuta lógica de negocio; solo expone los controles al
-usuario y devuelve una configuración tipada que el script principal consume.
+Responsabilidad única: Renderizar los controles de configuración del modelo K-Means,
+los filtros de la audiencia y capturar la señal de ejecución mediante un formulario.
 """
 
 from __future__ import annotations
@@ -20,104 +17,99 @@ from src.bigquery_client import get_categorical_options
 
 @dataclass
 class SidebarConfig:
-    """Valores de configuración seleccionados en el panel lateral."""
-
     n_clusters: int
-    winsorize: bool | None
-    winsor_pct: float | None
+    winsorize: bool
+    winsor_pct: float
 
 
-def render_sidebar(raw_rfm_df: pd.DataFrame | None = None) -> SidebarConfig:
+def render_sidebar(raw_df: pd.DataFrame | None = None) -> tuple[SidebarConfig, bool]:
     """
-    Renderiza el panel lateral completo y retorna la configuración seleccionada.
+    Renderiza la barra lateral con los parámetros del modelo K-Means y los filtros categóricos.
+    Agrupa todo en un formulario para evitar ejecuciones en cada cambio de input.
 
     Parameters
     ----------
-    raw_rfm_df:
-        DataFrame sin filtrar cargado desde BigQuery. Se usa para generar los
-        filtros categóricos dinámicos. Si es ``None``, ese bloque se omite.
+    raw_df : pd.DataFrame | None
+        DataFrame original para extraer las opciones de filtrado.
 
     Returns
     -------
-    SidebarConfig
-        Valores actuales de K, winsorizing y percentil de corte.
+    tuple[SidebarConfig, bool]
+        Configuración del modelo y el estado del botón de ejecución (True si fue presionado).
     """
     with st.sidebar:
-        # ── Número de clusters ────────────────────────────────────────────────
+        # --- INYECCIÓN DE CSS PARA CORREGIR TEXTOS BLANCOS ---
+        # Forzamos a que los títulos (h2, h3), párrafos (p) y etiquetas de sliders/botones (label)
+        # dentro del sidebar tengan un color oscuro (#0F172A) para garantizar su lectura.
         st.markdown(
-            "<p style='font-size:0.72rem;font-weight:700;color:#64748B;"
-            "text-transform:uppercase;letter-spacing:0.08em;margin-top:1.1rem;margin-bottom:0.3rem;'>"
-            "Número de Clusters (K)</p>",
-            unsafe_allow_html=True,
+            """
+            <style>
+            [data-testid="stSidebar"] h2,
+            [data-testid="stSidebar"] h3,
+            [data-testid="stSidebar"] p,
+            [data-testid="stSidebar"] label {
+                color: #0F172A !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
         )
-        n_clusters: int = st.slider(
-            "K",
-            min_value=2,
-            max_value=10,
-            value=4,
-            step=1,
-            label_visibility="collapsed",
-            help=(
-                "Define en cuántos grupos se dividirá la audiencia. "
-                "Un valor de K más alto produce segmentos más específicos."
-            ),
-        )
+        # -----------------------------------------------------
 
-        # ── Tratamiento de outliers (winsorizing) ─────────────────────────────
-        # st.markdown(
-        #     "<p style='font-size:0.72rem;font-weight:700;color:#64748B;"
-        #     "text-transform:uppercase;letter-spacing:0.08em;margin-top:1.1rem;margin-bottom:0.3rem;'>"
-        #     "Tratamiento de Outliers</p>",
-        #     unsafe_allow_html=True,
-        # )
-        # winsorize: bool = st.toggle(
-        #     "Recortar valores extremos (winsorizing)",
-        #     value=False,
-        #     help=(
-        #         "Capa los valores extremos de recencia, frecuencia y monto a un "
-        #         "percentil, SIN eliminar clientes. Reduce la influencia de los "
-        #         "outliers sobre los centroides y suele mejorar la separación de los "
-        #         "clusters."
-        #     ),
-        # )
-        # winsor_pct: float = 99.0
-        # if winsorize:
-        #     winsor_pct = st.slider(
-        #         "Percentil de corte",
-        #         min_value=90.0,
-        #         max_value=99.9,
-        #         value=99.0,
-        #         step=0.1,
-        #         help=(
-        #             "Percentil superior de recorte (y su simétrico inferior). "
-        #             "Ej. 99.0 recorta por encima del p99 y por debajo del p1. "
-        #             "Un valor más bajo recorta más agresivamente."
-        #         ),
-        #     )
+        st.markdown("## ⚙️ Configuración del Modelo")
+        st.info("Ajusta los parámetros y presiona 'Ejecutar Modelo' para actualizar los resultados.")
 
-        # ── Filtros de columnas categóricas ───────────────────────────────────
-        if raw_rfm_df is not None:
-            _cat_opts = get_categorical_options(raw_rfm_df)
-            if _cat_opts:
-                st.divider()
-                st.markdown(
-                    "<p style='font-size:0.72rem;font-weight:700;color:#64748B;"
-                    "text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.5rem;'>"
-                    "Filtrar Audiencia</p>",
-                    unsafe_allow_html=True,
+        # Agrupamos los inputs en un formulario para evitar recargas automáticas (reruns)
+        with st.form("modelo_config_form"):
+
+            n_clusters = st.slider(
+                "Número de Clusters (K)",
+                min_value=2,
+                max_value=10,
+                value=4,
+                help="Cantidad de segmentos en los que se agrupará la audiencia."
+            )
+
+            st.markdown("### 🛠️ Preprocesamiento")
+            winsorize = st.toggle(
+                "Aplicar Winsorizing",
+                value=True,
+                help="Limita los valores extremos (outliers) a un percentil específico para evitar que distorsionen los centroides."
+            )
+
+            winsor_pct = 99.0
+            if winsorize:
+                winsor_pct = st.slider(
+                    "Percentil de Corte",
+                    min_value=90.0,
+                    max_value=99.9,
+                    value=99.0,
+                    step=0.1,
+                    help="Percentil superior para el recorte de outliers."
                 )
-                for _col, _values in _cat_opts.items():
-                    _label = _col.replace("_", " ").title()
+
+            # Si hay datos cargados en memoria, mostramos los filtros categóricos dinámicos
+            if raw_df is not None and not raw_df.empty:
+                st.markdown("### 🎯 Filtros de Audiencia")
+                categorical_opts = get_categorical_options(raw_df)
+
+                for col, options in categorical_opts.items():
                     st.multiselect(
-                        _label,
-                        options=_values,
-                        default=_values,
-                        key=f"filter_{_col}",
-                        help=f"Selecciona los valores de **{_label}** que deseas incluir en el análisis.",
+                        label=f"Filtrar por {col.replace('_', ' ').title()}",
+                        options=options,
+                        default=options,
+                        key=f"filter_{col}",  # Se guarda directamente en st.session_state al hacer submit
+                        help=f"Selecciona las categorías permitidas para {col}."
                     )
 
-    return SidebarConfig(
-        n_clusters=n_clusters,
-        winsorize=None,
-        winsor_pct=None,
-    )
+            st.divider()
+
+            # Botón de ejecución dentro del formulario
+            run_model = st.form_submit_button(
+                "🚀 Ejecutar Modelo",
+                type="primary",
+                use_container_width=True
+            )
+
+    return SidebarConfig(n_clusters, winsorize, winsor_pct), run_model
+

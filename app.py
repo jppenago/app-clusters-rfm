@@ -35,6 +35,7 @@ from components.styles import render_styles
 from components.tab_data import render_data_tab
 from components.tab_statistics import render_stats_tab
 from components.tab_visualizations import render_viz_tab
+from components.tab_ai import render_ai_tab  # Importamos el Asistente IA
 from src.bigquery_client import filter_by_categories, get_categorical_options
 from src.clustering import ClusteringResult, apply_kmeans, get_cluster_summary
 
@@ -63,7 +64,8 @@ for key, val in _STATE_DEFAULTS.items():
         st.session_state[key] = val
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
-sidebar_cfg = render_sidebar(st.session_state.get("raw_rfm_df"))
+# Recibimos tanto la configuración como la señal del botón 'run_model'
+sidebar_cfg, run_model = render_sidebar(st.session_state.get("raw_rfm_df"))
 n_clusters: int = sidebar_cfg.n_clusters
 winsorize: bool = sidebar_cfg.winsorize
 winsor_pct: float = sidebar_cfg.winsor_pct
@@ -114,7 +116,8 @@ if _source_sig is not None and _loader is not None:
 
     st.divider()
 
-    if st.button("🚀 Analizar Audiencia", type="primary", use_container_width=True):
+    # Reemplazamos el antiguo st.button por la señal `run_model` del Sidebar
+    if run_model:
         with st.status("Procesando análisis…", expanded=True):
 
             rfm_df: pd.DataFrame = st.session_state["raw_rfm_df"].copy()
@@ -166,11 +169,13 @@ if st.session_state["result"] is not None:
     render_metrics_bar(result, n_used)
     st.divider()
 
-    tab_viz, tab_stats, tab_data = st.tabs(
+    # Añadimos la nueva pestaña del Asistente IA a la interfaz
+    tab_viz, tab_stats, tab_data, tab_ai = st.tabs(
         [
             "Visualizaciones",
             "Estadísticas por Cluster",
             "Tabla de Datos",
+            "🤖 Asistente IA"
         ]
     )
 
@@ -182,7 +187,9 @@ if st.session_state["result"] is not None:
 
     with tab_data:
         render_data_tab(clust_df)
-
+        
+    with tab_ai:
+        render_ai_tab(summary)
 
 else:
     if st.session_state.get("raw_rfm_df") is None:
