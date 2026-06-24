@@ -1,0 +1,31 @@
+Archivos de credenciales de Google Cloud
+
+*.json
+
+Archivos de entorno y secretos
+
+.env
+.env.*
+secrets/
+
+Caché de Python
+
+pycache/
+*.py[cod]
+*$py.class
+
+Entornos virtuales
+
+venv/
+env/
+.venv/
+
+Archivos de Git
+
+.git/
+.gitignore
+
+Archivos del sistema operativo
+
+.DS_Store
+Thumbs.db
