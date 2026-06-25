@@ -39,6 +39,9 @@ from components.tab_ai import render_ai_tab  # Importamos el Asistente IA
 from src.bigquery_client import filter_by_categories, get_categorical_options
 from src.clustering import ClusteringResult, apply_kmeans, get_cluster_summary
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # ── Configuración de página ───────────────────────────────────────────────────
 st.set_page_config(
     page_title="Análisis RFM · Audiencias",
