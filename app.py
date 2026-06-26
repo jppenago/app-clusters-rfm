@@ -40,6 +40,7 @@ from src.bigquery_client import filter_by_categories, get_categorical_options
 from src.clustering import ClusteringResult, apply_kmeans, get_cluster_summary
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # ── Configuración de página ───────────────────────────────────────────────────
@@ -178,7 +179,7 @@ if st.session_state["result"] is not None:
             "Visualizaciones",
             "Estadísticas por Cluster",
             "Tabla de Datos",
-            "🤖 Asistente IA"
+            "🤖 Asistente IA",
         ]
     )
 
@@ -190,7 +191,7 @@ if st.session_state["result"] is not None:
 
     with tab_data:
         render_data_tab(clust_df)
-        
+
     with tab_ai:
         render_ai_tab(summary)
 

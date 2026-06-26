@@ -2,7 +2,7 @@
 Componente del tab de Asistente de IA (Vertex AI).
 
 Responsabilidad única: Inicializar una sesión de chat con Gemini, inyectar
-los resultados del clustering desde la memoria RAM (st.session_state) 
+los resultados del clustering desde la memoria RAM (st.session_state)
 como contexto, y gestionar la interfaz del chat.
 """
 
@@ -20,18 +20,18 @@ def init_ai_agent(summary: pd.DataFrame) -> tuple[ChatSession, str]:
     Toma el DataFrame directamente de la memoria RAM y lo convierte a texto.
     """
     # Inicializamos Vertex AI usando las credenciales del entorno
-    vertexai.init() 
-    
+    vertexai.init()
+
     # Usamos Gemini 2.5 Flash, que es el último modelo estable y veloz en Vertex AI
     # A partir de la versión 2.5, se recomienda usar el nombre base sin sufijo para la versión estable
     model = GenerativeModel("gemini-2.5-flash")
     chat = model.start_chat()
-    
+
     # ¡AQUÍ ESTÁ LA MAGIA EN MEMORIA!
     # Tomamos el DataFrame que viene de la RAM y lo convertimos a formato Markdown
     # para que el LLM lo pueda leer como si fuera una tabla de texto.
     contexto_clusters = summary.to_markdown(index=False)
-    
+
     system_prompt = f"""
     Eres un experto en Marketing Estratégico, Ciencia de Datos y Negocios. Acabamos de 
     ejecutar un modelo de clustering K-Means (Análisis RFM - Recencia, Frecuencia, Monto) 
@@ -52,7 +52,7 @@ def init_ai_agent(summary: pd.DataFrame) -> tuple[ChatSession, str]:
     Por favor, preséntate brevemente de forma profesional pero amigable, y entrega tu análisis inicial 
     de los clusters. Luego, quédate atento para responder las preguntas del usuario sobre estos segmentos.
     """
-    
+
     # Enviamos el contexto inicial de forma silenciosa para obtener la primera respuesta
     response = chat.send_message(system_prompt)
     return chat, response.text
@@ -60,22 +60,28 @@ def init_ai_agent(summary: pd.DataFrame) -> tuple[ChatSession, str]:
 
 def render_ai_tab(summary: pd.DataFrame) -> None:
     """Renderiza la interfaz del Asistente de IA en Streamlit."""
-    
+
     st.markdown(
         "<p style='font-size:1.1rem;font-weight:600;color:#0F172A;margin-bottom:1rem;display:flex;align-items:center;'>"
         "🤖 Asistente Estratégico de IA (Gemini)</p>",
         unsafe_allow_html=True,
     )
-    st.info("Pregúntale al agente sobre los resultados del clustering, ideas de campañas o cómo interpretar los datos. Todo ocurre en memoria.")
+    st.info(
+        "Pregúntale al agente sobre los resultados del clustering, ideas de campañas o cómo interpretar los datos. Todo ocurre en memoria."
+    )
 
     # Guardamos la sesión de chat en la memoria de Streamlit (session_state)
     # para que la IA recuerde la conversación mientras el usuario navega
     if "ai_chat_session" not in st.session_state:
-        with st.spinner("Despertando al Agente de IA y analizando clusters en memoria..."):
+        with st.spinner(
+            "Despertando al Agente de IA y analizando clusters en memoria..."
+        ):
             try:
                 chat_session, initial_analysis = init_ai_agent(summary)
                 st.session_state["ai_chat_session"] = chat_session
-                st.session_state["ai_chat_history"] = [{"role": "assistant", "content": initial_analysis}]
+                st.session_state["ai_chat_history"] = [
+                    {"role": "assistant", "content": initial_analysis}
+                ]
             except Exception as e:
                 st.error(f"Error al conectar con Vertex AI: {e}")
                 return
@@ -86,8 +92,10 @@ def render_ai_tab(summary: pd.DataFrame) -> None:
             st.markdown(msg["content"])
 
     # Caja de texto para el usuario
-    if prompt := st.chat_input("Ej: ¿Qué campaña me recomiendas para el Cluster 2 con bajo presupuesto?"):
-        
+    if prompt := st.chat_input(
+        "Ej: ¿Qué campaña me recomiendas para el Cluster 2 con bajo presupuesto?"
+    ):
+
         # Guardar y mostrar el mensaje del usuario
         st.session_state["ai_chat_history"].append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -101,10 +109,8 @@ def render_ai_tab(summary: pd.DataFrame) -> None:
                     response = chat.send_message(prompt)
                     st.markdown(response.text)
                     # Guardar respuesta en historial
-                    st.session_state["ai_chat_history"].append({"role": "assistant", "content": response.text})
+                    st.session_state["ai_chat_history"].append(
+                        {"role": "assistant", "content": response.text}
+                    )
                 except Exception as e:
                     st.error(f"Hubo un problema al procesar tu solicitud: {e}")
-
-
-
-                    

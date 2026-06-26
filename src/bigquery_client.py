@@ -232,22 +232,25 @@ def _get_bq_client():
     return bigquery.Client(project=_BQ_PROJECT, credentials=credentials)
 '''
 
+
 # ... existing code ...
 def _get_bq_client():
     import os
     import google.auth
     from google.cloud import bigquery
     from google.oauth2 import service_account
-    
+
     print("\n[DEBUG] Iniciando _get_bq_client()...")
-    
+
     # 1. Detectamos de forma infalible si estamos en Cloud Run
     # Google Cloud Run inyecta automáticamente la variable de entorno 'K_SERVICE'
     is_cloud_run = "K_SERVICE" in os.environ
     print(f"[DEBUG] ¿Está en Cloud Run (K_SERVICE existe)? : {is_cloud_run}")
-    
+
     if is_cloud_run:
-        print("[DEBUG] Entorno de PRODUCCIÓN detectado. Obteniendo credenciales (ADC)...")
+        print(
+            "[DEBUG] Entorno de PRODUCCIÓN detectado. Obteniendo credenciales (ADC)..."
+        )
         # En PRODUCCIÓN (Cloud Run): usamos ADC de forma segura
         credentials, project_id = google.auth.default()
         print(f"[DEBUG] ADC obtenidas exitosamente. Project ID: {project_id}")
@@ -255,9 +258,13 @@ def _get_bq_client():
         print("[DEBUG] Cliente BigQuery inicializado (Producción).")
     else:
         # En LOCAL (tu máquina): Obligamos a usar el archivo JSON
-        local_key_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "serviceaccount.json")
-        print(f"[DEBUG] Entorno LOCAL detectado. Buscando credenciales en: {os.path.abspath(local_key_path)}")
-        
+        local_key_path = os.environ.get(
+            "GOOGLE_APPLICATION_CREDENTIALS", "serviceaccount.json"
+        )
+        print(
+            f"[DEBUG] Entorno LOCAL detectado. Buscando credenciales en: {os.path.abspath(local_key_path)}"
+        )
+
         # Si no encuentra el archivo, lanzamos un error claro para EVITAR el loop infinito
         if not os.path.exists(local_key_path):
             print("[DEBUG] ❌ ERROR: Archivo JSON no encontrado. Deteniendo ejecución.")
@@ -266,18 +273,23 @@ def _get_bq_client():
                 "El proceso se detuvo para evitar un loop infinito. Por favor verifica que el archivo exista "
                 "en esa ubicación exacta."
             )
-            
+
         print("[DEBUG] ✅ Archivo JSON encontrado. Cargando credenciales...")
-        credentials = service_account.Credentials.from_service_account_file(local_key_path)
-        print(f"[DEBUG] Credenciales cargadas. Project ID: {credentials.project_id}. Inicializando cliente...")
-        client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+        credentials = service_account.Credentials.from_service_account_file(
+            local_key_path
+        )
+        print(
+            f"[DEBUG] Credenciales cargadas. Project ID: {credentials.project_id}. Inicializando cliente..."
+        )
+        client = bigquery.Client(
+            credentials=credentials, project=credentials.project_id
+        )
         print("[DEBUG] Cliente BigQuery inicializado (Local).")
-        
+
     return client
-    
+
 
 # ... existing code ...
-
 
 
 def _build_select_clause() -> str:

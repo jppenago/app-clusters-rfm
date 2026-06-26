@@ -52,12 +52,14 @@ def render_sidebar(raw_df: pd.DataFrame | None = None) -> tuple[SidebarConfig, b
             }
             </style>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
         # -----------------------------------------------------
 
         st.markdown("## ⚙️ Configuración del Modelo")
-        st.info("Ajusta los parámetros y presiona 'Ejecutar Modelo' para actualizar los resultados.")
+        st.info(
+            "Ajusta los parámetros y presiona 'Ejecutar Modelo' para actualizar los resultados."
+        )
 
         # Agrupamos los inputs en un formulario para evitar recargas automáticas (reruns)
         with st.form("modelo_config_form"):
@@ -67,14 +69,14 @@ def render_sidebar(raw_df: pd.DataFrame | None = None) -> tuple[SidebarConfig, b
                 min_value=2,
                 max_value=10,
                 value=4,
-                help="Cantidad de segmentos en los que se agrupará la audiencia."
+                help="Cantidad de segmentos en los que se agrupará la audiencia.",
             )
 
             st.markdown("### 🛠️ Preprocesamiento")
             winsorize = st.toggle(
                 "Aplicar Winsorizing",
                 value=True,
-                help="Limita los valores extremos (outliers) a un percentil específico para evitar que distorsionen los centroides."
+                help="Limita los valores extremos (outliers) a un percentil específico para evitar que distorsionen los centroides.",
             )
 
             winsor_pct = 99.0
@@ -85,7 +87,7 @@ def render_sidebar(raw_df: pd.DataFrame | None = None) -> tuple[SidebarConfig, b
                     max_value=99.9,
                     value=99.0,
                     step=0.1,
-                    help="Percentil superior para el recorte de outliers."
+                    help="Percentil superior para el recorte de outliers.",
                 )
 
             # Si hay datos cargados en memoria, mostramos los filtros categóricos dinámicos
@@ -99,17 +101,14 @@ def render_sidebar(raw_df: pd.DataFrame | None = None) -> tuple[SidebarConfig, b
                         options=options,
                         default=options,
                         key=f"filter_{col}",  # Se guarda directamente en st.session_state al hacer submit
-                        help=f"Selecciona las categorías permitidas para {col}."
+                        help=f"Selecciona las categorías permitidas para {col}.",
                     )
 
             st.divider()
 
             # Botón de ejecución dentro del formulario
             run_model = st.form_submit_button(
-                "🚀 Ejecutar Modelo",
-                type="primary",
-                use_container_width=True
+                "🚀 Ejecutar Modelo", type="primary", use_container_width=True
             )
 
     return SidebarConfig(n_clusters, winsorize, winsor_pct), run_model
-
