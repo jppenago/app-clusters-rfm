@@ -35,7 +35,8 @@ def init_ai_agent(summary: pd.DataFrame) -> tuple[ChatSession, str]:
     system_prompt = f"""
     Eres un experto en Marketing Estratégico, Ciencia de Datos y Negocios. Acabamos de 
     ejecutar un modelo de clustering K-Means (Análisis RFM - Recencia, Frecuencia, Monto) 
-    sobre nuestra base de clientes.
+    sobre nuestra base de clientes, la cual contiene información detallada sobre su 
+    comportamiento de compra en los ultimos 6 meses del año actual.
     
     Aquí tienes el resumen estadístico en memoria y las reglas lógicas de cada cluster:
     {contexto_clusters}
