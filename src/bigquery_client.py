@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import uuid  # Añadimos uuid para generar nombres únicos para las tablas temporales
 
 import numpy as np
 import pandas as pd
@@ -211,6 +212,7 @@ def filter_by_categories(df: pd.DataFrame, selections: dict[str, list]) -> pd.Da
     return out
 
 
+<<<<<<< HEAD
 '''
 def _get_bq_client():
     """Crea un cliente de BigQuery autenticado con el Service Account."""
@@ -234,6 +236,8 @@ def _get_bq_client():
 
 
 # ... existing code ...
+=======
+>>>>>>> 4a49106 (modificamos el codigo en bigquery_client.py para poder correr un modelo con mas de un millon de clientes)
 def _get_bq_client():
     import os
     import google.auth
@@ -287,6 +291,7 @@ def _get_bq_client():
         print("[DEBUG] Cliente BigQuery inicializado (Local).")
 
     return client
+<<<<<<< HEAD
 
 
 # ... existing code ...
@@ -294,8 +299,16 @@ def _get_bq_client():
 
 def _build_select_clause() -> str:
     """Construye el SELECT con alias a partir del mapeo declarado."""
+=======
+
+
+def _build_select_clause(table_alias: str = "") -> str:
+    """Construye el SELECT con alias a partir del mapeo declarado.
+    Permite prefijar las columnas con un alias de tabla para evitar ambigüedades en los JOINs."""
+    prefix = f"{table_alias}." if table_alias else ""
+>>>>>>> 4a49106 (modificamos el codigo en bigquery_client.py para poder correr un modelo con mas de un millon de clientes)
     return ",\n            ".join(
-        f"{source} AS {alias}" if source != alias else source
+        f"{prefix}{source} AS {alias}" if source != alias else f"{prefix}{source}"
         for source, alias in _BQ_COLUMN_ALIASES.items()
     )
 
@@ -308,41 +321,56 @@ def _ensure_output_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df[OUTPUT_COLUMNS]
 
 
-def _bigquery_fetch(llave_sistemas: list[str]) -> pd.DataFrame:
+def _bigquery_fetch(llaves_sistemas: list[str]) -> pd.DataFrame:
     """
-    Extrae datos desde BigQuery usando consulta parametrizada (sin riesgo de
-    inyección SQL).  Requiere credenciales GCP configuradas.
-
-    Nota: ``create_bqstorage_client=False`` deshabilita la BigQuery Storage API
-    (gRPC) y fuerza la descarga por REST, evitando un cuelgue conocido en
-    Python 3.9 con ciertos entornos de threading/gRPC.
+    Extrae datos desde BigQuery usando una tabla temporal para cruzar (JOIN),
+    lo cual evita errores HTTP 413 (Payload Too Large) con millones de registros.
     """
     from google.cloud import bigquery  # noqa: PLC0415
 
-    safe_ids = [lid for lid in llave_sistemas if re.match(r"^[\w\-]+$", str(lid))]
+    safe_ids = [lid for lid in llaves_sistemas if re.match(r"^[\w\-]+$", str(lid))]
 
     if not safe_ids:
         return pd.DataFrame(columns=OUTPUT_COLUMNS)
 
     client = _get_bq_client()
+    
+    # 1. Crear el DataFrame con los IDs limpios
+    df_llaves = pd.DataFrame({'llave_sistema': safe_ids})
+    
+    # 2. Definir ID de tabla temporal usando las variables globales de proyecto y dataset
+    temp_table_id = f"{_BQ_PROJECT}.{_BQ_DATASET}.temp_rfm_keys_{uuid.uuid4().hex}"
+    
+    print(f"[DEBUG] Subiendo {len(df_llaves)} IDs a la tabla temporal: {temp_table_id}")
+    
+    try:
+        # 3. Cargar el DataFrame a BigQuery
+        job_config = bigquery.LoadJobConfig(
+            write_disposition="WRITE_TRUNCATE",
+            autodetect=True 
+        )
+        load_job = client.load_table_from_dataframe(df_llaves, temp_table_id, job_config=job_config)
+        load_job.result() # Esperar a que termine la carga
+        
+        # 4. Ejecutar la consulta con un INNER JOIN, asignando alias 'base' y 'filtro'
+        query = f"""
+            SELECT
+                {_build_select_clause('base')}
+            FROM `{_BQ_PROJECT}.{_BQ_DATASET}.{_BQ_TABLE}` AS base
+            INNER JOIN `{temp_table_id}` AS filtro
+            ON base.llave_sistema = CAST(filtro.llave_sistema AS STRING)
+            WHERE base.valor_total >= 10000
+        """
+        print(f"[DEBUG] Ejecutando consulta principal con JOIN...")
+        
+        job = client.query(query)
+        df = job.result(timeout=300).to_dataframe(create_bqstorage_client=False)
+        return _ensure_output_columns(df)
 
-    query = f"""
-        SELECT
-            {_build_select_clause()}
-        FROM `{_BQ_PROJECT}.{_BQ_DATASET}.{_BQ_TABLE}`
-        WHERE llave_sistema IN UNNEST(@llave_sistemas) AND valor_total >= 10000
-    """
-    print(query)
-
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ArrayQueryParameter("llave_sistemas", "STRING", safe_ids)
-        ]
-    )
-
-    job = client.query(query, job_config=job_config)
-    df = job.result(timeout=300).to_dataframe(create_bqstorage_client=False)
-    return _ensure_output_columns(df)
+    finally:
+        # 5. LIMPIEZA: Borrar la tabla temporal sin importar el resultado
+        print(f"[DEBUG] Eliminando tabla temporal: {temp_table_id}")
+        client.delete_table(temp_table_id, not_found_ok=True)
 
 
 def _bigquery_fetch_all(limit: int | None = None) -> pd.DataFrame:
