@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import uuid  # Añadimos uuid para generar nombres únicos para las tablas temporales
 
 import numpy as np
 import pandas as pd
@@ -211,46 +212,21 @@ def filter_by_categories(df: pd.DataFrame, selections: dict[str, list]) -> pd.Da
     return out
 
 
-'''
-def _get_bq_client():
-    """Crea un cliente de BigQuery autenticado con el Service Account."""
-    import os  # noqa: PLC0415
-
-    from google.cloud import bigquery  # noqa: PLC0415
-    from google.oauth2 import service_account  # noqa: PLC0415
-
-    # Inyectar CAs del SO (Windows y macOS) para entornos con proxy de inspección SSL.
-    _inject_system_certs()
-
-    sa_key_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "serviceaccount.json"
-    )
-    credentials = service_account.Credentials.from_service_account_file(
-        sa_key_path,
-        scopes=["https://www.googleapis.com/auth/cloud-platform"],
-    )
-    return bigquery.Client(project=_BQ_PROJECT, credentials=credentials)
-'''
-
-
-# ... existing code ...
 def _get_bq_client():
     import os
     import google.auth
     from google.cloud import bigquery
     from google.oauth2 import service_account
-
+    
     print("\n[DEBUG] Iniciando _get_bq_client()...")
-
+    
     # 1. Detectamos de forma infalible si estamos en Cloud Run
     # Google Cloud Run inyecta automáticamente la variable de entorno 'K_SERVICE'
     is_cloud_run = "K_SERVICE" in os.environ
     print(f"[DEBUG] ¿Está en Cloud Run (K_SERVICE existe)? : {is_cloud_run}")
-
+    
     if is_cloud_run:
-        print(
-            "[DEBUG] Entorno de PRODUCCIÓN detectado. Obteniendo credenciales (ADC)..."
-        )
+        print("[DEBUG] Entorno de PRODUCCIÓN detectado. Obteniendo credenciales (ADC)...")
         # En PRODUCCIÓN (Cloud Run): usamos ADC de forma segura
         credentials, project_id = google.auth.default()
         print(f"[DEBUG] ADC obtenidas exitosamente. Project ID: {project_id}")
@@ -258,13 +234,9 @@ def _get_bq_client():
         print("[DEBUG] Cliente BigQuery inicializado (Producción).")
     else:
         # En LOCAL (tu máquina): Obligamos a usar el archivo JSON
-        local_key_path = os.environ.get(
-            "GOOGLE_APPLICATION_CREDENTIALS", "serviceaccount.json"
-        )
-        print(
-            f"[DEBUG] Entorno LOCAL detectado. Buscando credenciales en: {os.path.abspath(local_key_path)}"
-        )
-
+        local_key_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "serviceaccount.json")
+        print(f"[DEBUG] Entorno LOCAL detectado. Buscando credenciales en: {os.path.abspath(local_key_path)}")
+        
         # Si no encuentra el archivo, lanzamos un error claro para EVITAR el loop infinito
         if not os.path.exists(local_key_path):
             print("[DEBUG] ❌ ERROR: Archivo JSON no encontrado. Deteniendo ejecución.")
@@ -273,29 +245,22 @@ def _get_bq_client():
                 "El proceso se detuvo para evitar un loop infinito. Por favor verifica que el archivo exista "
                 "en esa ubicación exacta."
             )
-
+            
         print("[DEBUG] ✅ Archivo JSON encontrado. Cargando credenciales...")
-        credentials = service_account.Credentials.from_service_account_file(
-            local_key_path
-        )
-        print(
-            f"[DEBUG] Credenciales cargadas. Project ID: {credentials.project_id}. Inicializando cliente..."
-        )
-        client = bigquery.Client(
-            credentials=credentials, project=credentials.project_id
-        )
+        credentials = service_account.Credentials.from_service_account_file(local_key_path)
+        print(f"[DEBUG] Credenciales cargadas. Project ID: {credentials.project_id}. Inicializando cliente...")
+        client = bigquery.Client(credentials=credentials, project=credentials.project_id)
         print("[DEBUG] Cliente BigQuery inicializado (Local).")
-
+        
     return client
 
 
-# ... existing code ...
-
-
-def _build_select_clause() -> str:
-    """Construye el SELECT con alias a partir del mapeo declarado."""
+def _build_select_clause(table_alias: str = "") -> str:
+    """Construye el SELECT con alias a partir del mapeo declarado.
+    Permite prefijar las columnas con un alias de tabla para evitar ambigüedades en los JOINs."""
+    prefix = f"{table_alias}." if table_alias else ""
     return ",\n            ".join(
-        f"{source} AS {alias}" if source != alias else source
+        f"{prefix}{source} AS {alias}" if source != alias else f"{prefix}{source}"
         for source, alias in _BQ_COLUMN_ALIASES.items()
     )
 
@@ -308,41 +273,56 @@ def _ensure_output_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df[OUTPUT_COLUMNS]
 
 
-def _bigquery_fetch(llave_sistemas: list[str]) -> pd.DataFrame:
+def _bigquery_fetch(llaves_sistemas: list[str]) -> pd.DataFrame:
     """
-    Extrae datos desde BigQuery usando consulta parametrizada (sin riesgo de
-    inyección SQL).  Requiere credenciales GCP configuradas.
-
-    Nota: ``create_bqstorage_client=False`` deshabilita la BigQuery Storage API
-    (gRPC) y fuerza la descarga por REST, evitando un cuelgue conocido en
-    Python 3.9 con ciertos entornos de threading/gRPC.
+    Extrae datos desde BigQuery usando una tabla temporal para cruzar (JOIN),
+    lo cual evita errores HTTP 413 (Payload Too Large) con millones de registros.
     """
     from google.cloud import bigquery  # noqa: PLC0415
 
-    safe_ids = [lid for lid in llave_sistemas if re.match(r"^[\w\-]+$", str(lid))]
+    safe_ids = [lid for lid in llaves_sistemas if re.match(r"^[\w\-]+$", str(lid))]
 
     if not safe_ids:
         return pd.DataFrame(columns=OUTPUT_COLUMNS)
 
     client = _get_bq_client()
+    
+    # 1. Crear el DataFrame con los IDs limpios
+    df_llaves = pd.DataFrame({'llave_sistema': safe_ids})
+    
+    # 2. Definir ID de tabla temporal usando las variables globales de proyecto y dataset
+    temp_table_id = f"{_BQ_PROJECT}.{_BQ_DATASET}.temp_rfm_keys_{uuid.uuid4().hex}"
+    
+    print(f"[DEBUG] Subiendo {len(df_llaves)} IDs a la tabla temporal: {temp_table_id}")
+    
+    try:
+        # 3. Cargar el DataFrame a BigQuery
+        job_config = bigquery.LoadJobConfig(
+            write_disposition="WRITE_TRUNCATE",
+            autodetect=True 
+        )
+        load_job = client.load_table_from_dataframe(df_llaves, temp_table_id, job_config=job_config)
+        load_job.result() # Esperar a que termine la carga
+        
+        # 4. Ejecutar la consulta con un INNER JOIN, asignando alias 'base' y 'filtro'
+        query = f"""
+            SELECT
+                {_build_select_clause('base')}
+            FROM `{_BQ_PROJECT}.{_BQ_DATASET}.{_BQ_TABLE}` AS base
+            INNER JOIN `{temp_table_id}` AS filtro
+            ON base.llave_sistema = CAST(filtro.llave_sistema AS STRING)
+            WHERE base.valor_total >= 10000
+        """
+        print(f"[DEBUG] Ejecutando consulta principal con JOIN...")
+        
+        job = client.query(query)
+        df = job.result(timeout=300).to_dataframe(create_bqstorage_client=False)
+        return _ensure_output_columns(df)
 
-    query = f"""
-        SELECT
-            {_build_select_clause()}
-        FROM `{_BQ_PROJECT}.{_BQ_DATASET}.{_BQ_TABLE}`
-        WHERE llave_sistema IN UNNEST(@llave_sistemas) AND valor_total >= 10000
-    """
-    print(query)
-
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ArrayQueryParameter("llave_sistemas", "STRING", safe_ids)
-        ]
-    )
-
-    job = client.query(query, job_config=job_config)
-    df = job.result(timeout=300).to_dataframe(create_bqstorage_client=False)
-    return _ensure_output_columns(df)
+    finally:
+        # 5. LIMPIEZA: Borrar la tabla temporal sin importar el resultado
+        print(f"[DEBUG] Eliminando tabla temporal: {temp_table_id}")
+        client.delete_table(temp_table_id, not_found_ok=True)
 
 
 def _bigquery_fetch_all(limit: int | None = None) -> pd.DataFrame:
