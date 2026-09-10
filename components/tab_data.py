@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pandas as pd
 import streamlit as st
-from src.storage_client import exportar_parquet_firmado  # Importamos la función de Storage
+from src.storage_client import exportar_parquet_firmado
 
 
 def render_data_tab(clust_df: pd.DataFrame) -> None:
@@ -38,18 +38,24 @@ def render_data_tab(clust_df: pd.DataFrame) -> None:
         display_df = clust_df[clust_df["cluster"] == cid_filter]
 
     display_fmt = display_df.sort_values("cluster").reset_index(drop=True).copy()
-    display_fmt["valor_total"] = display_fmt["valor_total"].apply(
-        lambda x: f"$ {x:,.0f}"
-    )
     
-    # 1. Limitamos la previsualización a las primeras 50 filas para evitar bloqueos
-    st.dataframe(display_fmt.head(50), use_container_width=True)
+    # Renderizamos la tabla usando el formato nativo para evitar el error de PyArrow
+    # y usamos width="stretch" en lugar del obsoleto use_container_width
+    st.dataframe(
+        display_fmt.head(50), 
+        width="stretch",
+        column_config={
+            "valor_total": st.column_config.NumberColumn(
+                "valor_total",
+                format="$ %d"
+            )
+        }
+    )
 
-    # 2. Reemplazamos la descarga directa en memoria por la exportación a Cloud Storage
     st.divider()
     
-    # Nota: Exportamos el dataframe original completo (clust_df), no el limitado a 50 filas
-    if st.button("Guardar en Cloud Storage y Generar Link (.parquet)", use_container_width=True):
+    # Actualizamos también el botón con width="stretch"
+    if st.button("Guardar en Cloud Storage y Generar Link (.parquet)", width="stretch"):
         with st.spinner("Procesando y subiendo archivo a Cloud Storage..."):
             try:
                 url_descarga = exportar_parquet_firmado(
