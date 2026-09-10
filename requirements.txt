@@ -8,3 +8,6 @@ db-dtypes>=1.1.0
 google-cloud-aiplatform>=1.38.0
 python-dotenv
 tabulate
+pyarrow
+pytz
+google-cloud-storage
