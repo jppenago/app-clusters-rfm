@@ -11,8 +11,10 @@ def exportar_parquet_firmado(df_resultados, project_id, bucket_name="app-cluster
     ahora = datetime.now(zona_colombia)
     nombre_archivo = f"app_clustersrfm_{ahora.strftime('%Y%m%d_%H%M')}.parquet"
     
-    # 1. Obtiene las credenciales y las refresca para asegurar que el token esté activo
-    credentials, _ = google.auth.default()
+    # 1. Obtiene las credenciales con el scope explícito y las refresca
+    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+    credentials, _ = google.auth.default(scopes=scopes)
+    
     if not credentials.valid:
         credentials.refresh(Request())
         
