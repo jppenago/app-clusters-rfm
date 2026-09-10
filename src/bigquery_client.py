@@ -219,6 +219,9 @@ def _get_bq_client():
     from google.oauth2 import service_account
     
     print("\n[DEBUG] Iniciando _get_bq_client()...")
+
+    # Esto inyecta los certificados corporativos para evitar el error SSL
+    _inject_system_certs()
     
     # 1. Detectamos de forma infalible si estamos en Cloud Run
     # Google Cloud Run inyecta automáticamente la variable de entorno 'K_SERVICE'
@@ -318,6 +321,10 @@ def _bigquery_fetch(llaves_sistemas: list[str]) -> pd.DataFrame:
         job = client.query(query)
         df = job.result(timeout=300).to_dataframe(create_bqstorage_client=False)
         return _ensure_output_columns(df)
+
+    except Exception as e:
+        print(f"\n[DEBUG] ❌ ERROR CRÍTICO CAPTURADO: {e}\n")
+        raise e
 
     finally:
         # 5. LIMPIEZA: Borrar la tabla temporal sin importar el resultado
